@@ -1,4 +1,4 @@
-name: CI/CD for Docker
+name: ECS CI/CD via Docker hub
 
 on:
   push:
@@ -8,8 +8,15 @@ on:
     branches:
       - main
 
+env:
+  AWS_REGION: ap-northeast-2
+  ECS_TASK_DEFINITION: ./task-definition.json
+  CONTAINER_NAME: djangoecs
+  ECS_SERVICE: djangoecs
+  ECS_CLUSTER: djangodev
+
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,12 +29,30 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build Docker Image
+    - name: Build and Push Docker Image
       run: |
         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:${{ github.sha }} .
         docker tag ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest
-
-    - name: Push Docker Image
-      run: |
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:${{ github.sha }}
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::529088268639:role/push_image
+        role-session-name: UpdateECSService
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Update ECS Task Definition
+      id: update-task-def
+      run: |
+        sed -e "s|<IMAGE>|${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest|" ${{ env.ECS_TASK_DEFINITION }} > updated-task-definition.json
+        aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
+
+    # ECS 서비스 업데이트 및 배포 깔쥐
+    - name: Deploy to ECS
+      run: |
+        aws ecs update-service \
+          --cluster ${{ env.ECS_CLUSTER }} \
+          --service ${{ env.ECS_SERVICE }} \
+          --force-new-deployment
