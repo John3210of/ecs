@@ -47,16 +47,18 @@ jobs:
         role-session-name: UpdateECSService
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Update ECS Task Definition
-      id: update-task-def
-      run: |
-        sed -e "s|<IMAGE>|${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest|" ${{ env.ECS_TASK_DEFINITION }} > updated-task-definition.json
-        aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
+    - name: Render ECS Task Definition
+      id: render-task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ env.ECS_TASK_DEFINITION }}
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest
 
-    # ECS 서비스 업데이트 및 배포 깔쥐
-    - name: Deploy to ECS
-      run: |
-        aws ecs update-service \
-          --cluster ${{ env.ECS_CLUSTER }} \
-          --service ${{ env.ECS_SERVICE }} \
-          --force-new-deployment
+    - name: Deploy ECS Service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        cluster: ${{ env.ECS_CLUSTER }}
+        service: ${{ env.ECS_SERVICE }}
+        task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+        wait-for-service-stability: true
