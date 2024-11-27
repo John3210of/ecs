@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+permissions:
+ id-token: write
+ contents: read
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -22,12 +26,33 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build Docker Image
+    - name: Build Docker Image for Docker Hub
       run: |
         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:${{ github.sha }} .
         docker tag ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest
 
-    - name: Push Docker Image
+    - name: Push Docker Image to Docker Hub
       run: |
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:${{ github.sha }}
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/apiserver:latest
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::529088268639:role/push_image
+        role-session-name: sampleSessionName
+        aws-region: ap-northeast-2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
+
+    - name: Build and Push Image to AWS ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+        ECR_REPOSITORY: awscicd
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
