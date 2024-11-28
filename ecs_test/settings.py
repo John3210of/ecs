@@ -77,6 +77,7 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://djangoecslb-968168892.ap-northeast-2.elb.amazonaws.com",
+    "http://django-reactapp.s3-website.ap-northeast-2.amazonaws.com",
 ]
 
 ROOT_URLCONF = 'ecs_test.urls'
