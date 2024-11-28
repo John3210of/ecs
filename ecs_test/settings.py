@@ -16,7 +16,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
+# Quick-start development settings - unsuitable for production/
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -24,9 +24,8 @@ from decouple import config
 import os
 
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
-
+DEBUG = True
 if ENVIRONMENT == 'production':
-    DEBUG = False
     ALLOWED_HOSTS = ['*']
     SECRET_KEY = os.getenv('SECRET_KEY')
     DATABASES = {
@@ -40,7 +39,6 @@ if ENVIRONMENT == 'production':
         }
     }
 else:
-    DEBUG = True
     ALLOWED_HOSTS = ["*"]
     SECRET_KEY = config('SECRET_KEY')
     DATABASES = {
